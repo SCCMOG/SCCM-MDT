@@ -3,13 +3,16 @@
 #  Original Author: Johan Arwidmark <https://deploymentresearch.com/Research/Post/670/Adding-DaRT-to-ConfigMgr-Boot-Images-And-starting-it-earlier-than-early> 
 #  Updated By: Richie Schuster - C5 Alliance - SCCMOG.com
 #  Date:   28/07/2018
+#          03/08/2018 - Changed Folder search to get volume and select on data drives only as found issue on VMware VMs
+#                       Added default paths for installs MDT and Dart to speed up script for multiple Images.
+#                       
 #  Script: Add-DartToBootImageV2.ps1
 #  Usage: Powershell.exe -ExecutionPolicy Bypass -File .\Add-DartToBootImageV2.ps1 -EventServiceLocation http://roary-cm-01.roary.local:9800 -BootImageName 'MDT 8450 x64' -MountDrive J -SiteServer ROARY-CM-01.ROARY.LOCAL -SiteCode ROR
 #
 ##################################################################################################################
 
 param(
-    [parameter(Mandatory=$true, HelpMessage="Please enter the FQDN of the Server that host the MDT Monitoring Service")]
+    [parameter(Mandatory=$true, HelpMessage="Please enter the FQDN and PortNumber of the Server that host the MDT Monitoring Service. E.g http://roary-cm-01.roary.local:9800")]
     [ValidateNotNullOrEmpty()]
     [string]$EventServiceLocation,
     [parameter(Mandatory=$true, HelpMessage="Please enter the name of the bootimage you would like to inject DaRT into.")]
@@ -53,15 +56,18 @@ $XMLPath = "$PSScriptRoot\Unattend.xml"
 $EnableDart = "$PSScriptRoot\EnableDart.wsf"
 $SampleFiles = "$PSScriptroot"
 $MountPath = "$($MountDrive):\DartMount"
+$MDTDefaultPath = "C:\Program Files\Microsoft Deployment Toolkit\Templates"
 $MDTFolderName = "Microsoft Deployment Toolkit\Templates"
 $REGUninstall = "HKLM:\Software\Microsoft\Windows\CurrentVersion\Uninstall"
+$DartDefaultPath = "C:\Program Files\Microsoft DaRT"
 $DartDispName = 'Microsoft Dart 10'
 $DartFolderName = "Microsoft DaRT"
 $DartMSI = "$PSScriptroot\MSDaRT100.msi"
 
 #Function to find folders
 Function FindFolder($FolderName){
-    $Drives = Get-PSDrive -p FileSystem | Select-Object -ExpandProperty Name
+    #$Drives = Get-PSDrive -p FileSystem | Select-Object -ExpandProperty Name
+    $Drives =  Get-Volume | Where-Object { ($_.FileSystemLabel -ne "System Reserved") -and ( $_.DriveType -like "Fixed") -and ( $_.FileSystem -like "NTFS")} | Select-Object -ExpandProperty DriveLetter | Sort-Object
     $InstallPath = $null
     :findfolder Foreach ($drive in $Drives) {
         If ($InstallPath -eq $null) {
@@ -99,7 +105,12 @@ if (!(Test-Path -Path "$MountPath")) {
 $DaRT10 = Get-ItemProperty "$REGUninstall\*" | Where-Object DisplayName -Like $DartDispName
 if($DaRT10.VersionMajor -eq “10”){
     Write-Host "Dart is installed searching for CAB file location"
-    $DartInstallPath = FindFolder($DartFolderName)
+    If (Test-Path -Path $DartDefaultPath){
+        $DartInstallPath = $DartDefaultPath
+    }
+    Else {
+        $DartInstallPath = FindFolder($DartFolderName)
+    }
     $DartCab = $DartInstallPath + "\v10\Toolsx64.cab"
     if (Test-Path -Path "$DartCab"){
         Write-Host "Found DaRT x64 CAB at: $($DartCab)" -ForegroundColor Green
@@ -110,7 +121,6 @@ if($DaRT10.VersionMajor -eq “10”){
     }
 }
 else{
-# Add your way of deploying the application. I.e.:
     Write-Warning "Could not find any DaRT version installed. Installing DaRT MSI in root of folder."
     $DartArgs = "/i $DartMSI /qb /norestart /L*v $env:windir\temp\MSDaRT100_Install.Log"
     $process = Start-Process -FilePath "msiexec.exe" -ArgumentList $DartArgs -Wait -NoNewWindow -PassThru
@@ -124,8 +134,18 @@ else{
     $DartCab = "$ENV:ProgramFiles\$DartFolderName" + "\v10\Toolsx64.cab"
     if (!(Test-Path -Path "$DartCab")) {Write-Warning "Could not find DaRT Toolsx64.cab, aborting...";Break}
 }
-$MDTInstallationPath = FindFolder($MDTFolderName)
-if (!(Test-Path -Path "$MDTInstallationPath" -ErrorAction SilentlyContinue)) {Write-Warning "Could not find MDT, please install MDT and re run script, aborting...";Break}
+If (Test-Path -Path $MDTDefaultPath){
+    $MDTInstallationPath = $MDTDefaultPath
+    }
+Else {
+ $MDTInstallationPath = FindFolder($MDTFolderName)
+}
+if (!(Test-Path -Path "$MDTInstallationPath" -ErrorAction SilentlyContinue)) {
+    Write-Warning "Could not find MDT, please install MDT and re run script, aborting...";Break
+    }
+Else {
+    Write-Host "Found MDT at: $($MDTInstallationPath)" -ForegroundColor Green 
+}
 if (!(Test-Path -Path "$EnableDart")) {Write-Warning "Could not find EnableDart.wsf, aborting...";Break}
 if (!(Test-Path -Path "$XMLPath")) {Write-Warning "Could not find Unattend.xml, aborting...";Break}
 
@@ -203,3 +223,4 @@ $NewUpdateDate = $GetDistributionStatus.LastUpdateDate
  Start-Sleep -Seconds 10
 }
 Until ($NewUpdateDate -gt $OriginalUpdateDate)
+############################################################# Done :)
