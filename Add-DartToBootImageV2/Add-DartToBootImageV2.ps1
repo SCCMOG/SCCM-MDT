@@ -103,7 +103,7 @@ if (!(Test-Path -Path "$MountPath")) {
     }
 #Check if dart is installed - If not install it.
 $DaRT10 = Get-ItemProperty "$REGUninstall\*" | Where-Object DisplayName -Like $DartDispName
-if($DaRT10.VersionMajor -eq “10”){
+if($DaRT10.VersionMajor -eq "10"){
     Write-Host "Dart is installed searching for CAB file location"
     If (Test-Path -Path $DartDefaultPath){
         $DartInstallPath = $DartDefaultPath
