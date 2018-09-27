@@ -1,4 +1,4 @@
-﻿#Set-ConfigMgrMachineVariable
+﻿#Set-ConfigMgrMachineVariableWMI
 #SCCMOG.com Richie Schuster - 27/09/18
 #Gets the value of a ConfigMgr Objects Variable
 #E.g <Set-ConfigMgrMachineVariable -Siteserver ROARY-CM-01 -SiteCode ROR -MachineName TUDOR -VarName Hello2 -VarValue Really -VarMasked $false>

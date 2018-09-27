@@ -1,4 +1,4 @@
-﻿#Get-ConfigMgrMachineVariable
+﻿#Get-ConfigMgrMachineVariableWMI
 #SCCMOG.com Richie Schuster - 27/09/18
 #Gets the value of a ConfigMgr Objects Variable
 #E.g <Get-ConfigMgrMachineVariable -Siteserver $Siteserver -SiteCode $SiteCode -MachineName TUDOR -VarName "Hello2">
